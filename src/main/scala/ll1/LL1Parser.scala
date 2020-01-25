@@ -82,33 +82,36 @@ object LL1Parser extends App {
   val stack = new mutable.Stack[Token]
   stack.push(S)
 
-  val input = "(1.2*3)+5-(23.4+3)^3;8:13;"
+  val input = "(1.2*3)+5-(23.4+3)^3;8:13;1+2;"
+  //    val input = "1+1;"
+  //  val input = StdIn.readLine("Enter expression: ")
   val firstTable: Map[Token, List[Token]] = findFirst()
-  var charIndex = 0;
 
   showFirstTable(firstTable)
-  if (checkSyntax(input)) {
+  val isValid = checkSyntax(input)
+  if (isValid) {
     println("Składnia jest poprawna")
   } else {
-    println(s"Składnia nie jest poprawna:")
-    println(input)
-    val spaces = " " * charIndex
-    println(s"$spaces^")
+    println(s"Składnia nie jest poprawna")
   }
 
-  @scala.annotation.tailrec
   private def checkSyntax(syntax: String): Boolean = {
+    if (stack.isEmpty) {
+      return false
+    }
+
     val token: Token = stack.pop()
-    val analyzingToken = Terminal(syntax.charAt(charIndex).toString)
+    val analyzingToken = Terminal(syntax.take(1))
 
     token.tokenType match {
       case TokenType.TerminalToken =>
         val isEquals = token == analyzingToken
-        if (isEquals && syntax.length - charIndex > 1) {
-          charIndex = charIndex + 1
-          checkSyntax(syntax)
-        } else {
+        if (isEquals && syntax.length > 1) {
+          checkSyntax(syntax.drop(1))
+        } else if (isEquals && stack.isEmpty) {
           isEquals
+        } else {
+          isEquals && checkSyntax(syntax.drop(1))
         }
       case TokenType.ExpressionToken =>
         val sentence: Set[List[Token]] = grammar(token.asInstanceOf[Expression])

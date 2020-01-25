@@ -4,6 +4,7 @@ import ll1.TokenType.TokenType
 
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
+import scala.io.StdIn
 import scala.language.existentials
 
 object TokenType extends Enumeration {
@@ -82,21 +83,22 @@ object LL1Parser extends App {
   val stack = new mutable.Stack[Token]
   stack.push(S)
 
-  val input = "(1.2*3)+5-(23.4+3)^3;8:13;1+2;"
-  //    val input = "1+1;"
-  //  val input = StdIn.readLine("Enter expression: ")
+  //  val input = "(1.2*3)+5-(23.4+3)^3;8:13;"
+  val input = StdIn.readLine("Enter expression: ")
   val firstTable: Map[Token, List[Token]] = findFirst()
 
   showFirstTable(firstTable)
   val isValid = checkSyntax(input)
-  if (isValid) {
+  if (isValid && stack.isEmpty) {
     println("Składnia jest poprawna")
   } else {
     println(s"Składnia nie jest poprawna")
   }
 
   private def checkSyntax(syntax: String): Boolean = {
-    if (stack.isEmpty) {
+    if (stack.isEmpty && syntax.isEmpty) {
+      return true
+    } else if (stack.isEmpty) {
       return false
     }
 
@@ -104,40 +106,40 @@ object LL1Parser extends App {
     val analyzingToken = Terminal(syntax.take(1))
 
     token.tokenType match {
-      case TokenType.TerminalToken =>
-        val isEquals = token == analyzingToken
-        if (isEquals && syntax.length > 1) {
-          checkSyntax(syntax.drop(1))
-        } else if (isEquals && stack.isEmpty) {
-          isEquals
-        } else {
-          isEquals && checkSyntax(syntax.drop(1))
-        }
-      case TokenType.ExpressionToken =>
-        val sentence: Set[List[Token]] = grammar(token.asInstanceOf[Expression])
-        if (firstTable(token).contains(analyzingToken)) {
-          val candidates = sentence.filter(
-            alternative => alternative.headOption.exists { token =>
-              token.tokenType match {
-                case TokenType.TerminalToken => token == analyzingToken
-                case TokenType.ExpressionToken => firstTable(token).contains(analyzingToken)
-              }
-            }
-          )
+      case TokenType.TerminalToken => checkTerminal(syntax, token.asInstanceOf[Terminal], analyzingToken)
+      case TokenType.ExpressionToken => checkExpression(syntax, token.asInstanceOf[Expression], analyzingToken)
+    }
+  }
 
-          if (candidates.size != 1) {
-            throw new IllegalStateException("Cannot found one way! Check grammar!")
+  private def checkTerminal(syntax: String, token: Terminal, analyzingToken: Terminal): Boolean = {
+    val isEquals = token == analyzingToken
+    isEquals && checkSyntax(syntax.drop(1))
+  }
+
+  private def checkExpression(syntax: String, token: Expression, analyzingToken: Terminal): Boolean = {
+    val sentence: Set[List[Token]] = grammar(token)
+    if (firstTable(token).contains(analyzingToken)) {
+      val candidates = sentence.filter(
+        alternative => alternative.headOption.exists { token =>
+          token.tokenType match {
+            case TokenType.TerminalToken => token == analyzingToken
+            case TokenType.ExpressionToken => firstTable(token).contains(analyzingToken)
           }
-
-          val candidate = candidates.head
-
-          candidate.reverse.foreach(stack.push)
-          checkSyntax(syntax)
-        } else if (sentence.contains(epsilon)) {
-          checkSyntax(syntax)
-        } else {
-          false
         }
+      )
+
+      if (candidates.size != 1) {
+        throw new IllegalStateException("Cannot found one way! Check grammar!")
+      }
+
+      val candidate = candidates.head
+
+      candidate.reverse.foreach(stack.push)
+      checkSyntax(syntax)
+    } else if (sentence.contains(epsilon)) {
+      checkSyntax(syntax)
+    } else {
+      false
     }
   }
 

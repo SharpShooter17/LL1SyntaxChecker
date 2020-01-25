@@ -30,41 +30,57 @@ case class Expression(token: String) extends Token {
   override def name: String = token
 }
 
-object LL1Parser extends App {
+object LL1ParserApp extends App {
 
-  val epsilon = List(Terminal(""))
+  val input = StdIn.readLine("Enter expression: ")
 
-  val S = Expression("S")
-  val Z = Expression("Z")
-  val W = Expression("W")
-  val Wprim = Expression("Wprim")
-  val P = Expression("P")
-  val R = Expression("R")
-  val Rprim = Expression("Rprim")
-  val L = Expression("L")
-  val Lprim = Expression("Lprim")
-  val C = Expression("C")
-  val O = Expression("O")
+  if (LL1Parser.analyzeSyntax(input)) {
+    println("Składnia jest poprawna")
+  } else {
+    println(s"Składnia nie jest poprawna:")
+    println(input)
+    val spaces = "~" * LL1Parser.charIndex
+    println(s"$spaces^")
+  }
 
-  val `;` = Terminal(";")
-  val `.` = Terminal(".")
-  val `(` = Terminal("(")
-  val `)` = Terminal(")")
-  val `0` = Terminal("0")
-  val `1` = Terminal("1")
-  val `2` = Terminal("2")
-  val `3` = Terminal("3")
-  val `4` = Terminal("4")
-  val `5` = Terminal("5")
-  val `6` = Terminal("6")
-  val `7` = Terminal("7")
-  val `8` = Terminal("8")
-  val `9` = Terminal("9")
-  val `*` = Terminal("*")
-  val `:` = Terminal(":")
-  val `+` = Terminal("+")
-  val `-` = Terminal("-")
-  val `^` = Terminal("^")
+}
+
+object LL1Parser {
+  private val epsilon = List(Terminal(""))
+
+  private val S = Expression("S")
+  private val Z = Expression("Z")
+  private val W = Expression("W")
+  private val Wprim = Expression("Wprim")
+  private val P = Expression("P")
+  private val R = Expression("R")
+  private val Rprim = Expression("Rprim")
+  private val L = Expression("L")
+  private val Lprim = Expression("Lprim")
+  private val C = Expression("C")
+  private val O = Expression("O")
+
+  private val `;` = Terminal(";")
+  private val `.` = Terminal(".")
+  private val `(` = Terminal("(")
+  private val `)` = Terminal(")")
+  private val `0` = Terminal("0")
+  private val `1` = Terminal("1")
+  private val `2` = Terminal("2")
+  private val `3` = Terminal("3")
+  private val `4` = Terminal("4")
+  private val `5` = Terminal("5")
+  private val `6` = Terminal("6")
+  private val `7` = Terminal("7")
+  private val `8` = Terminal("8")
+  private val `9` = Terminal("9")
+  private val `*` = Terminal("*")
+  private val `:` = Terminal(":")
+  private val `+` = Terminal("+")
+  private val `-` = Terminal("-")
+  private val `^` = Terminal("^")
+
+  var charIndex: Int = 0;
 
   private val grammar: ListMap[Token, Set[List[Token]]] = ListMap(
     S -> Set(List(W, `;`, Z)),
@@ -80,22 +96,20 @@ object LL1Parser extends App {
     O -> Set(List(`*`), List(`:`), List(`+`), List(`-`), List(`^`))
   )
 
-  val stack = new mutable.Stack[Token]
-  stack.push(S)
+  def analyzeSyntax(input: String): Boolean = {
+    implicit val stack: mutable.Stack[Token] = new mutable.Stack[Token]
+    stack.push(S)
 
-  //  val input = "(1.2*3)+5-(23.4+3)^3;8:13;"
-  val input = StdIn.readLine("Enter expression: ")
-  val firstTable: Map[Token, List[Token]] = findFirst()
+    implicit val firstTable: Map[Token, List[Token]] = findFirst()
+    showFirstTable(firstTable)
 
-  showFirstTable(firstTable)
-  val isValid = checkSyntax(input)
-  if (isValid && stack.isEmpty) {
-    println("Składnia jest poprawna")
-  } else {
-    println(s"Składnia nie jest poprawna")
+    charIndex = 0
+
+    checkSyntax(input)
   }
 
-  private def checkSyntax(syntax: String): Boolean = {
+  private def checkSyntax(syntax: String)
+                         (implicit stack: mutable.Stack[Token], firstTable: Map[Token, List[Token]]): Boolean = {
     if (stack.isEmpty && syntax.isEmpty) {
       return true
     } else if (stack.isEmpty) {
@@ -111,12 +125,18 @@ object LL1Parser extends App {
     }
   }
 
-  private def checkTerminal(syntax: String, token: Terminal, analyzingToken: Terminal): Boolean = {
-    val isEquals = token == analyzingToken
-    isEquals && checkSyntax(syntax.drop(1))
+  private def checkTerminal(syntax: String, token: Terminal, analyzingToken: Terminal)
+                           (implicit stack: mutable.Stack[Token], firstTable: Map[Token, List[Token]]): Boolean = {
+    if (token == analyzingToken) {
+      if (syntax.length > 1) {
+        charIndex = charIndex + 1
+      }
+      checkSyntax(syntax.drop(1))
+    } else false
   }
 
-  private def checkExpression(syntax: String, token: Expression, analyzingToken: Terminal): Boolean = {
+  private def checkExpression(syntax: String, token: Expression, analyzingToken: Terminal)
+                             (implicit stack: mutable.Stack[Token], firstTable: Map[Token, List[Token]]): Boolean = {
     val sentence: Set[List[Token]] = grammar(token)
     if (firstTable(token).contains(analyzingToken)) {
       val candidates = sentence.filter(
@@ -132,9 +152,9 @@ object LL1Parser extends App {
         throw new IllegalStateException("Cannot found one way! Check grammar!")
       }
 
-      val candidate = candidates.head
+      val candidate: List[Token] = candidates.head
 
-      candidate.reverse.foreach(stack.push)
+      candidate.reverse.foreach(t => stack.push(t))
       checkSyntax(syntax)
     } else if (sentence.contains(epsilon)) {
       checkSyntax(syntax)
